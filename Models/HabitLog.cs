@@ -10,6 +10,6 @@ namespace HabitTracker.Models
 
         public bool Completed { get; set; }
 
-        public Habit Habit { get; set; }
+        public Habit Habit { get; set; } = null!;
     }
 }

@@ -1,0 +1,47 @@
+@page "/habits"
+@inject HabitTracker.Services.HabitService HabitService
+
+<h3>Habits</h3>
+
+<input @bind="newHabit" placeholder="New Habit" />
+<button @onclick="AddHabit">Add</button>
+
+<ul>
+    @foreach (var habit in habits)
+    {
+        <li>
+            @habit.Name
+            <button @onclick="() => DeleteHabit(habit.Id)">Delete</button>
+        </li>
+    }
+</ul>
+
+@code {
+    private List<HabitTracker.Models.Habit> habits = new();
+    private string newHabit = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        habits = await HabitService.GetHabits();
+    }
+
+    private async Task AddHabit()
+    {
+        if (!string.IsNullOrWhiteSpace(newHabit))
+        {
+            await HabitService.AddHabit(new HabitTracker.Models.Habit
+            {
+                Name = newHabit
+            });
+
+            newHabit = "";
+            habits = await HabitService.GetHabits();
+        }
+    }
+
+    private async Task DeleteHabit(int id)
+    {
+        await HabitService.DeleteHabit(id);
+        habits = await HabitService.GetHabits();
+    }
+}

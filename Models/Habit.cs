@@ -7,8 +7,8 @@ namespace HabitTracker.Models
         public int Id { get; set; }
 
         [Required]
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
 
-        public string UserId { get; set; }
+        public string UserId { get; set; } = null!;
     }
 }

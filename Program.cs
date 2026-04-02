@@ -1,4 +1,7 @@
 using HabitTracker.Components;
+using Microsoft.EntityFrameworkCore;
+using HabitTracker.Data;
+using HabitTracker.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,6 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite("Data Source=habittracker.db"));
+
+builder.Services.AddScoped<HabitService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
