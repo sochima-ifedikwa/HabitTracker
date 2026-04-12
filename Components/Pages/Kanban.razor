@@ -3,73 +3,80 @@
 @rendermode InteractiveServer
 @inject HabitService HabitService
 @inject HabitLogService HabitLogService
+@inject NotificationService NotificationService
 
-<PageTitle>Kanban Board</PageTitle>
+<PageTitle>Kanban View | Habit Tracker</PageTitle>
 
-<div class="kanban-header mb-4">
+<div class="kanban-header mb-4 fade-in">
     <div>
-        <h2 class="kanban-title">Kanban Board</h2>
-        <p class="kanban-subtitle">@DateTime.Now.ToString("dddd, MMMM d, yyyy") — same habits as your Habits list</p>
+        <h2 class="kanban-title">Habit Pipeline</h2>
+        <p class="kanban-subtitle">@DateTime.Now.ToString("dddd, MMMM d, yyyy") — Interactive workflow for your habits</p>
     </div>
-    <a href="/habits" class="btn btn-outline-secondary btn-sm px-3 align-self-start mt-1">List View</a>
+    <a href="/habits" class="btn btn-outline-secondary btn-sm px-3 align-self-start mt-1 shadow-sm" aria-label="Switch to List View">List View</a>
 </div>
 
-<div class="kanban-board">
+<div class="kanban-board fade-in">
     @foreach (var col in _columns)
     {
         var habits = _habits.Where(h => h.Status == col.Status).ToList();
 
-        <div class="kanban-column @(_dragOverCol == col.Status ? "drag-over" : "")"
+        <div class="kanban-column @(_dragOverCol == col.Status ? "drag-over" : "") slide-up"
              style="--col-color:@col.Color; --col-light:@col.LightColor"
              @ondragover:preventDefault="true"
              @ondragenter="() => _dragOverCol = col.Status"
              @ondragleave="() => { if (_dragOverCol == col.Status) _dragOverCol = null; }"
              @ondrop="() => DropOnColumn(col.Status)">
 
-            <!-- Column header -->
+            <!-- Column Headings -->
             <div class="kanban-col-header">
                 <div class="d-flex align-items-center gap-2">
                     <span class="col-dot" style="background:@col.Color"></span>
                     <span class="col-title">@col.Label</span>
                     <span class="col-count">@habits.Count</span>
                 </div>
-                <button class="btn-col-add" @onclick="() => OpenAddForm(col.Status)" title="Add habit">+</button>
+                <button class="btn-col-add shadow-sm" @onclick="() => OpenAddForm(col.Status)" title="Add habit to @col.Label" aria-label="Add habit to @col.Label">+</button>
             </div>
 
-            <!-- Cards -->
+            <!-- Draggable Cards Area -->
             <div class="kanban-cards-area">
                 @foreach (var habit in habits)
                 {
                     var doneToday = _todayStatus.ContainsKey(habit.Id);
 
-                    <div class="kanban-card @(_draggingId == habit.Id ? "is-dragging" : "") @(doneToday ? "kcard-done" : "")"
+                    <div class="kanban-card @(_draggingId == habit.Id ? "is-dragging" : "") @(doneToday ? "kcard-done" : "") glass-card"
                          style="border-left-color:@col.Color"
                          draggable="true"
                          @ondragstart="() => StartDrag(habit.Id)"
-                         @ondragend="EndDrag">
+                         @ondragend="EndDrag"
+                         aria-grabbed="@(_draggingId == habit.Id ? "true" : "false")">
 
                         @if (_editingHabit?.Id == habit.Id)
                         {
+                            <!-- Inline Editing mode -->
                             <EditForm Model="_editingHabit" OnValidSubmit="SaveEditAsync">
                                 <DataAnnotationsValidator />
-                                <input class="kcard-input" @bind="_editingHabit.Name" maxlength="100" placeholder="Habit name..." />
-                                <textarea class="kcard-textarea" @bind="_editingHabit.Description" rows="2" maxlength="500" placeholder="Description..."></textarea>
+                                <div class="mb-2">
+                                    <input class="kcard-input" @bind="_editingHabit.Name" maxlength="100" placeholder="Habit name..." aria-label="Habit Name" />
+                                    <ValidationMessage For="() => _editingHabit.Name" class="text-danger small" />
+                                </div>
+                                <textarea class="kcard-textarea" @bind="_editingHabit.Description" rows="2" maxlength="500" placeholder="Description..." aria-label="Habit Description"></textarea>
                                 <div class="kcard-actions mt-2">
-                                    <button type="submit" class="kbtn kbtn-save">Save</button>
+                                    <button type="submit" class="kbtn kbtn-save shadow-sm">Save</button>
                                     <button type="button" class="kbtn kbtn-cancel" @onclick="() => _editingHabit = null">Cancel</button>
                                 </div>
                             </EditForm>
                         }
                         else
                         {
-                            <!-- Today toggle -->
+                            <!-- Display mode -->
                             <div class="d-flex align-items-start gap-2 mb-1">
                                 <input type="checkbox"
-                                       class="habit-check mt-1 flex-shrink-0"
+                                       class="form-check-input habit-check mt-1 flex-shrink-0"
                                        checked="@doneToday"
-                                       @onchange="() => ToggleTodayAsync(habit.Id)"
-                                       title="Mark complete today" />
-                                <div class="kcard-title @(doneToday ? "text-decoration-line-through text-muted" : "")">
+                                       @onchange="() => ToggleTodayAsync(habit.Id, habit.Name)"
+                                       title="Mark complete for today"
+                                       aria-label="Toggle @habit.Name" />
+                                <div class="kcard-title @(doneToday ? "text-decoration-line-through text-muted" : "text-dark")">
                                     @habit.Name
                                 </div>
                             </div>
@@ -79,39 +86,49 @@
                                 <div class="kcard-desc">@habit.Description</div>
                             }
 
-                            <div class="d-flex align-items-center justify-content-between mt-1">
-                                <span class="kcard-freq">@habit.Frequency</span>
-                                <span class="kcard-date">@habit.HabitLogs.Count log(s)</span>
+                            <div class="d-flex align-items-center justify-content-between mt-2">
+                                <span class="kcard-freq badge bg-light text-secondary border">@habit.Frequency</span>
+                                <span class="kcard-date">@habit.HabitLogs.Count sessions</span>
                             </div>
 
-                            <div class="kcard-actions mt-2">
+                            <div class="kcard-actions mt-3">
                                 @if (habit.Status != KanbanStatus.Create)
                                 {
-                                    <button class="kbtn kbtn-arrow" @onclick="() => MoveLeft(habit)" title="Move left">&#8592;</button>
+                                    <button class="kbtn kbtn-arrow" @onclick="() => MoveLeft(habit)" title="Move Left" aria-label="Move @habit.Name Left">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
                                 }
                                 @if (habit.Status != KanbanStatus.End)
                                 {
-                                    <button class="kbtn kbtn-arrow" @onclick="() => MoveRight(habit)" title="Move right">&#8594;</button>
+                                    <button class="kbtn kbtn-arrow" @onclick="() => MoveRight(habit)" title="Move Right" aria-label="Move @habit.Name Right">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
                                 }
-                                <button class="kbtn kbtn-edit"   @onclick="() => StartEdit(habit)" title="Edit">&#9998;</button>
-                                <button class="kbtn kbtn-delete" @onclick="() => _confirmDeleteId = habit.Id" title="Delete">&#10005;</button>
+                                <button class="kbtn kbtn-edit ms-auto" @onclick="() => StartEdit(habit)" title="Edit Habit" aria-label="Edit @habit.Name">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="kbtn kbtn-delete" @onclick="() => _confirmDeleteId = habit.Id" title="Delete Habit" aria-label="Delete @habit.Name">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
                             </div>
                         }
                     </div>
                 }
             </div>
 
-            <!-- Add form / button -->
+            <!-- Inline Quick Add Form -->
             @if (_addingToCol == col.Status)
             {
-                <div class="kanban-add-form">
+                <div class="kanban-add-form shadow-sm border-0 slide-down">
                     <EditForm Model="_newHabit" OnValidSubmit="SaveNewHabitAsync">
                         <DataAnnotationsValidator />
-                        <ValidationMessage For="() => _newHabit.Name" class="text-danger small" />
-                        <input class="kcard-input" @bind="_newHabit.Name" maxlength="100" placeholder="Habit name..." />
-                        <textarea class="kcard-textarea" @bind="_newHabit.Description" rows="2" maxlength="500" placeholder="Description (optional)..."></textarea>
+                        <div class="mb-2">
+                            <input class="kcard-input" @bind="_newHabit.Name" maxlength="100" placeholder="Habit name..." aria-label="New Habit Name" />
+                            <ValidationMessage For="() => _newHabit.Name" class="text-danger small" />
+                        </div>
+                        <textarea class="kcard-textarea" @bind="_newHabit.Description" rows="2" maxlength="500" placeholder="Description (optional)..." aria-label="New Habit Description"></textarea>
                         <div class="kcard-actions mt-2">
-                            <button type="submit" class="kbtn kbtn-save">Add</button>
+                            <button type="submit" class="kbtn kbtn-save shadow-sm">Add Habit</button>
                             <button type="button" class="kbtn kbtn-cancel" @onclick="() => _addingToCol = null">Cancel</button>
                         </div>
                     </EditForm>
@@ -119,36 +136,43 @@
             }
             else
             {
-                <button class="kanban-add-btn" @onclick="() => OpenAddForm(col.Status)">+ Add a habit</button>
+                <button class="kanban-add-btn" @onclick="() => OpenAddForm(col.Status)" aria-label="Add a habit to @col.Label">
+                    <i class="bi bi-plus-lg me-1"></i> Add a habit
+                </button>
             }
         </div>
     }
 </div>
 
-<!-- Delete confirmation -->
+<!-- Persistent Delete Confirmation -->
 @if (_confirmDeleteId.HasValue)
 {
-    <div class="modal-backdrop-custom" @onclick="() => _confirmDeleteId = null"></div>
-    <div class="confirm-dialog card shadow p-4">
-        <h6 class="fw-semibold mb-2">Delete this habit?</h6>
-        <p class="text-muted small mb-3">This will also remove all completion history.</p>
-        <div class="d-flex gap-2">
-            <button class="btn btn-danger btn-sm" @onclick="DeleteConfirmedAsync">Delete</button>
-            <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmDeleteId = null">Cancel</button>
+    <div class="modal-backdrop-custom fade-in" @onclick="() => _confirmDeleteId = null"></div>
+    <div class="confirm-dialog card shadow-lg border-0 p-4 slide-up">
+        <h5 class="fw-bold mb-2 text-danger">Remove Habit?</h5>
+        <p class="text-muted small mb-4">Are you sure? This will permanently delete the habit and its entire history.</p>
+        <div class="d-flex gap-2 justify-content-end">
+            <button class="btn btn-link text-decoration-none text-secondary" @onclick="() => _confirmDeleteId = null">Cancel</button>
+            <button class="btn btn-danger btn-sm px-4" @onclick="DeleteConfirmedAsync">Delete</button>
         </div>
     </div>
 }
 
 @code {
+    /* 
+       Team Note: This is where we implemented the drag-and-drop workflow. 
+       We wanted a more 'Agile' feel for the habits, so we added columns and draggable cards.
+    */
     [CascadingParameter] private Task<AuthenticationState> AuthStateTask { get; set; } = null!;
 
+    // We define our columns here with specific labels and colors for the UI.
     private record ColumnDef(string Label, KanbanStatus Status, string Color, string LightColor);
 
     private readonly List<ColumnDef> _columns =
     [
-        new("Create", KanbanStatus.Create, "#1a237e", "#e8eaf6"),
-        new("Doing",  KanbanStatus.Doing,  "#b8860b", "#fffde7"),
-        new("End",    KanbanStatus.End,    "#1b5e20", "#e8f5e9"),
+        new("To Do",       KanbanStatus.Create, "#1a237e", "#e8eaf6"),
+        new("In Progress", KanbanStatus.Doing,  "#b8860b", "#fffde7"),
+        new("Accomplished",KanbanStatus.End,    "#1b5e20", "#e8f5e9"),
     ];
 
     private string _userId = string.Empty;
@@ -169,56 +193,88 @@
         await LoadAsync();
     }
 
+    // We fetch our board data here.
     private async Task LoadAsync()
     {
-        _habits = await HabitService.GetHabitsAsync(_userId);
-        _todayStatus = await HabitLogService.GetTodayStatusAsync(_userId);
+        try {
+            _habits = await HabitService.GetHabitsAsync(_userId);
+            _todayStatus = await HabitLogService.GetTodayStatusAsync(_userId);
+        } catch {
+            NotificationService.ShowError("We couldn't sync your board. Try a refresh!");
+        }
     }
 
-    // ── Drag & drop ──────────────────────────────────────────────
+    // ── Drag & drop Lifecycle ──────────────────────────────────────
+    
+    // When we start dragging a habit, we keep track of its ID.
     private void StartDrag(int id) => _draggingId = id;
+    
+    // We clean up the drag state once it's done. 
     private void EndDrag() { _draggingId = null; _dragOverCol = null; }
 
+    // This is where the magic happens. We update the habit's status in the DB when it's dropped.
     private async Task DropOnColumn(KanbanStatus target)
     {
         if (_draggingId.HasValue)
         {
-            await HabitService.UpdateStatusAsync(_draggingId.Value, target, _userId);
-            _draggingId = null; _dragOverCol = null;
-            await LoadAsync();
+            try {
+                await HabitService.UpdateStatusAsync(_draggingId.Value, target, _userId);
+                _draggingId = null; 
+                _dragOverCol = null;
+                await LoadAsync();
+                NotificationService.ShowInfo("Status updated!");
+            } catch {
+                NotificationService.ShowError("We couldn't move that habit.");
+            }
         }
     }
 
-    // ── Arrow move ────────────────────────────────────────────────
+    // ── Manual Navigation (Arrows) ────────────────────────────────
+    
+    // We added these arrow buttons for people who prefer clicking over dragging.
     private async Task MoveLeft(Habit h)
     {
-        var next = h.Status == KanbanStatus.End ? KanbanStatus.Doing : KanbanStatus.Create;
-        await HabitService.UpdateStatusAsync(h.Id, next, _userId);
-        await LoadAsync();
-    }
-    private async Task MoveRight(Habit h)
-    {
-        var next = h.Status == KanbanStatus.Create ? KanbanStatus.Doing : KanbanStatus.End;
+        var next = h.Status switch {
+            KanbanStatus.End => KanbanStatus.Doing,
+            _ => KanbanStatus.Create
+        };
         await HabitService.UpdateStatusAsync(h.Id, next, _userId);
         await LoadAsync();
     }
 
-    // ── Add ───────────────────────────────────────────────────────
+    private async Task MoveRight(Habit h)
+    {
+        var next = h.Status switch {
+            KanbanStatus.Create => KanbanStatus.Doing,
+            _ => KanbanStatus.End
+        };
+        await HabitService.UpdateStatusAsync(h.Id, next, _userId);
+        await LoadAsync();
+    }
+
+    // ── CRUD Operations ───────────────────────────────────────────
+    
     private void OpenAddForm(KanbanStatus col)
     {
         _editingHabit = null;
         _newHabit = new Habit { Status = col };
         _addingToCol = col;
     }
+
     private async Task SaveNewHabitAsync()
     {
-        _newHabit.UserId = _userId;
-        await HabitService.AddHabitAsync(_newHabit);
-        _addingToCol = null; _newHabit = new();
-        await LoadAsync();
+        try {
+            _newHabit.UserId = _userId;
+            await HabitService.AddHabitAsync(_newHabit);
+            NotificationService.ShowSuccess($"Boom! New habit added.");
+            _addingToCol = null; 
+            _newHabit = new();
+            await LoadAsync();
+        } catch {
+            NotificationService.ShowError("Oops, we couldn't add that.");
+        }
     }
 
-    // ── Edit ──────────────────────────────────────────────────────
     private void StartEdit(Habit h)
     {
         _addingToCol = null;
@@ -228,29 +284,45 @@
             Frequency = h.Frequency, Status = h.Status, UserId = h.UserId
         };
     }
+
     private async Task SaveEditAsync()
     {
         if (_editingHabit is null) return;
-        await HabitService.UpdateHabitAsync(_editingHabit, _userId);
-        _editingHabit = null;
-        await LoadAsync();
+        try {
+            await HabitService.UpdateHabitAsync(_editingHabit, _userId);
+            NotificationService.ShowSuccess("We saved your changes.");
+            _editingHabit = null;
+            await LoadAsync();
+        } catch {
+            NotificationService.ShowError("We couldn't save those edits.");
+        }
     }
 
-    // ── Delete ────────────────────────────────────────────────────
     private async Task DeleteConfirmedAsync()
     {
         if (_confirmDeleteId.HasValue)
         {
-            await HabitService.DeleteHabitAsync(_confirmDeleteId.Value, _userId);
-            _confirmDeleteId = null;
-            await LoadAsync();
+            try {
+                await HabitService.DeleteHabitAsync(_confirmDeleteId.Value, _userId);
+                NotificationService.ShowInfo("We removed that habit for good.");
+                _confirmDeleteId = null;
+                await LoadAsync();
+            } catch {
+                NotificationService.ShowError("Something went wrong while deleting.");
+            }
         }
     }
 
-    // ── Today toggle ──────────────────────────────────────────────
-    private async Task ToggleTodayAsync(int habitId)
+    // ── Completion Toggle ────────────────────────────────────────
+    
+    private async Task ToggleTodayAsync(int habitId, string name)
     {
-        await HabitLogService.ToggleCompletionAsync(habitId, _userId);
-        _todayStatus = await HabitLogService.GetTodayStatusAsync(_userId);
+        try {
+            var isAdded = await HabitLogService.ToggleCompletionAsync(habitId, _userId);
+            _todayStatus = await HabitLogService.GetTodayStatusAsync(_userId);
+            if (isAdded) NotificationService.ShowSuccess($"We logged '{name}' for today!");
+        } catch {
+            NotificationService.ShowError("We couldn't log that. Try again!");
+        }
     }
 }

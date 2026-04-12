@@ -1,0 +1,79 @@
+@using HabitTracker.Services
+@implements IDisposable
+@inject NotificationService NotificationService
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 2000" aria-live="polite" aria-atomic="true">
+    @foreach (var toast in _toasts)
+    {
+        <div class="toast show mb-2 border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header @GetHeaderClass(toast.Type) text-white border-0">
+                <i class="@GetIconClass(toast.Type) me-2"></i>
+                <strong class="me-auto">@toast.Title</strong>
+                <button type="button" class="btn-close btn-close-white" @onclick="() => RemoveToast(toast.Id)" aria-label="Close"></button>
+            </div>
+            <div class="toast-body bg-white text-dark rounded-bottom">
+                @toast.Message
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .toast {
+        min-width: 280px;
+        animation: slideIn 0.3s ease-out;
+    }
+    @@keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+</style>
+
+@code {
+    private List<NotificationMessage> _toasts = new();
+
+    protected override void OnInitialized()
+    {
+        NotificationService.OnShow += HandleShow;
+    }
+
+    private void HandleShow(NotificationMessage msg)
+    {
+        _toasts.Add(msg);
+        StateHasChanged();
+
+        // Auto-remove after 5 seconds
+        Task.Delay(5000).ContinueWith(_ => RemoveToast(msg.Id));
+    }
+
+    private void RemoveToast(Guid id)
+    {
+        var toast = _toasts.FirstOrDefault(t => t.Id == id);
+        if (toast != null)
+        {
+            _toasts.Remove(toast);
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetHeaderClass(NotificationType type) => type switch
+    {
+        NotificationType.Success => "bg-success",
+        NotificationType.Error => "bg-danger",
+        NotificationType.Warning => "bg-warning",
+        _ => "bg-primary"
+    };
+
+    private string GetIconClass(NotificationType type) => type switch
+    {
+        NotificationType.Success => "bi bi-check-circle-fill",
+        NotificationType.Error => "bi bi-exclamation-octagon-fill",
+        NotificationType.Warning => "bi bi-exclamation-triangle-fill",
+        _ => "bi bi-info-circle-fill"
+    };
+
+    public void Dispose()
+    {
+        NotificationService.OnShow -= HandleShow;
+    }
+}

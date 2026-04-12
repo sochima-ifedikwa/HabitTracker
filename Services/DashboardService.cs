@@ -12,8 +12,13 @@ namespace HabitTracker.Services
         int CurrentStreak,
         List<HabitProgress> HabitProgress);
 
+    /*
+       Team Note: This service calculates the big picture stats for the user. 
+       We handle logic like streaks and weekly percentages so the UI can just display it.
+    */
     public class DashboardService(ApplicationDbContext context)
     {
+        // We gather everything together here: total counts, streaks, and progress for the last 7 days.
         public async Task<DashboardStats> GetStatsAsync(string userId)
         {
             var today = DateTime.Today;
@@ -40,7 +45,8 @@ namespace HabitTracker.Services
                 .Distinct()
                 .Count();
 
-            // Streak: consecutive days ending today where at least one habit was completed
+            // Streak logic: we count backwards from today to see how many consecutive days 
+            // the user has been active on any of their habits.
             var completedDays = await context.HabitLogs
                 .Where(l => habitIds.Contains(l.HabitId) && l.Completed)
                 .Select(l => l.Date.Date)
@@ -55,6 +61,7 @@ namespace HabitTracker.Services
                 checkDay = checkDay.AddDays(-1);
             }
 
+            // We calculate the individual progress for each habit here.
             var progress = habits.Select(h =>
             {
                 var habitLogs = logs.Where(l => l.HabitId == h.Id).ToList();

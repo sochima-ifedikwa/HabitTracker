@@ -45,6 +45,7 @@ builder.Services.AddScoped<HabitService>();
 builder.Services.AddScoped<HabitLogService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<KanbanService>();
+builder.Services.AddScoped<NotificationService>();
 
 var app = builder.Build();
 

@@ -2,34 +2,42 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject DashboardService DashboardService
+@inject NotificationService NotificationService
 
-<PageTitle>Dashboard</PageTitle>
+<PageTitle>Dashboard | Habit Tracker</PageTitle>
 
 @if (_stats is null)
 {
     <div class="text-center py-5">
-        <div class="spinner-border text-primary" role="status"></div>
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading statistics...</span>
+        </div>
     </div>
 }
 else
 {
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold mb-0">Dashboard</h2>
-        <a href="/habits" class="btn btn-primary btn-sm px-3">Manage Habits</a>
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+        <div>
+            <h2 class="fw-bold mb-0">Overview</h2>
+            <p class="text-muted small mb-0">Your journey at a glance.</p>
+        </div>
+        <a href="/habits" class="btn btn-primary btn-sm px-4 shadow-sm" aria-label="Manage your habits">
+            <i class="bi bi-gear-fill me-1"></i> Manage Habits
+        </a>
     </div>
 
-    <!-- Stat cards -->
-    <div class="row g-3 mb-4">
+    <!-- Statistical Insight Cards -->
+    <div class="row g-4 mb-5 fade-in">
         <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm stat-card h-100">
+            <div class="card border-0 shadow-sm stat-card h-100 slide-up" style="--delay: 1">
                 <div class="card-body text-center py-4">
                     <div class="stat-number text-primary">@_stats.TotalHabits</div>
-                    <div class="stat-label">Total Habits</div>
+                    <div class="stat-label">Total Active</div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm stat-card h-100">
+            <div class="card border-0 shadow-sm stat-card h-100 slide-up" style="--delay: 2">
                 <div class="card-body text-center py-4">
                     <div class="stat-number text-success">@_stats.CompletedToday</div>
                     <div class="stat-label">Done Today</div>
@@ -37,7 +45,7 @@ else
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm stat-card h-100">
+            <div class="card border-0 shadow-sm stat-card h-100 slide-up" style="--delay: 3">
                 <div class="card-body text-center py-4">
                     <div class="stat-number text-warning">@_stats.CurrentStreak</div>
                     <div class="stat-label">Day Streak 🔥</div>
@@ -45,12 +53,12 @@ else
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm stat-card h-100">
+            <div class="card border-0 shadow-sm stat-card h-100 slide-up" style="--delay: 4">
                 <div class="card-body text-center py-4">
                     <div class="stat-number text-info">
                         @(_stats.TotalHabits > 0
                             ? $"{Math.Round((double)_stats.CompletedToday / _stats.TotalHabits * 100)}%"
-                            : "—")
+                            : "0%")
                     </div>
                     <div class="stat-label">Today's Rate</div>
                 </div>
@@ -58,56 +66,85 @@ else
         </div>
     </div>
 
-    <!-- Habit progress -->
-    @if (_stats.HabitProgress.Count == 0)
-    {
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-5">
-                <p class="text-muted mb-2">No habits yet.</p>
-                <a href="/habits" class="btn btn-primary btn-sm">Add Your First Habit</a>
+    <!-- Weekly Progress List -->
+    <div class="fade-in">
+        <h4 class="fw-bold mb-3">Weekly Progress</h4>
+        @if (_stats.HabitProgress.Count == 0)
+        {
+            <div class="card border-0 shadow-sm glass-card">
+                <div class="card-body text-center py-5">
+                    <p class="text-muted mb-3">No data available yet.</p>
+                    <a href="/habits" class="btn btn-outline-primary btn-sm px-4">Create your first habit</a>
+                </div>
             </div>
-        </div>
-    }
-    else
-    {
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-bottom fw-semibold py-3">
-                Weekly Progress
+        }
+        else
+        {
+            <div class="card border-0 shadow-sm glass-card overflow-hidden">
+                <div class="card-header bg-white border-bottom border-light fw-bold py-3 px-4">
+                    Individual Performance
+                </div>
+                <div class="list-group list-group-flush">
+                    @foreach (var item in _stats.HabitProgress)
+                    {
+                        <div class="list-group-item px-4 py-4 border-light border-bottom">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="d-flex align-items-center gap-3">
+                                    @if (item.CompletedToday)
+                                    {
+                                        <span class="badge bg-success-soft text-success rounded-pill px-3 py-1 border border-success">
+                                            <i class="bi bi-check-lg"></i> Done
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-muted rounded-pill px-3 py-1 border">
+                                            Pending
+                                        </span>
+                                    }
+                                    <span class="fw-bold text-dark fs-5">@item.Habit.Name</span>
+                                    <span class="badge bg-light text-secondary fw-normal border">@item.Habit.Frequency</span>
+                                </div>
+                                <div class="text-end">
+                                    <span class="fw-bold text-primary fs-5">@item.WeeklyPercent%</span>
+                                    <div class="text-muted small">This Week</div>
+                                </div>
+                            </div>
+                            
+                            <div class="progress shadow-sm transition-all" style="height: 10px;">
+                                <div class="progress-bar @(item.WeeklyPercent >= 75 ? "bg-success" : item.WeeklyPercent >= 40 ? "bg-warning" : "bg-danger")"
+                                     role="progressbar"
+                                     style="width: @item.WeeklyPercent%"
+                                     aria-valuenow="@item.WeeklyPercent"
+                                     aria-valuemin="0" aria-valuemax="100"
+                                     aria-label="Weekly progress for @item.Habit.Name">
+                                </div>
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(item.Habit.Description))
+                            {
+                                <p class="text-muted small mt-2 mb-0">
+                                    <i class="bi bi-info-circle me-1"></i> @item.Habit.Description
+                                </p>
+                            }
+                        </div>
+                    }
+                </div>
             </div>
-            <ul class="list-group list-group-flush">
-                @foreach (var item in _stats.HabitProgress)
-                {
-                    <li class="list-group-item px-4 py-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge rounded-pill @(item.CompletedToday ? "bg-success" : "bg-secondary") small">
-                                    @(item.CompletedToday ? "Done" : "Pending")
-                                </span>
-                                <span class="fw-medium">@item.Habit.Name</span>
-                                <span class="badge bg-light text-secondary small">@item.Habit.Frequency</span>
-                            </div>
-                            <span class="text-muted small">@item.WeeklyPercent%</span>
-                        </div>
-                        <div class="progress" style="height: 6px;">
-                            <div class="progress-bar @(item.WeeklyPercent >= 70 ? "bg-success" : item.WeeklyPercent >= 40 ? "bg-warning" : "bg-danger")"
-                                 role="progressbar"
-                                 style="width: @item.WeeklyPercent%"
-                                 aria-valuenow="@item.WeeklyPercent"
-                                 aria-valuemin="0" aria-valuemax="100">
-                            </div>
-                        </div>
-                        @if (!string.IsNullOrEmpty(item.Habit.Description))
-                        {
-                            <small class="text-muted">@item.Habit.Description</small>
-                        }
-                    </li>
-                }
-            </ul>
-        </div>
-    }
+        }
+    </div>
 }
 
+<style>
+    .bg-success-soft { background-color: rgba(25, 135, 84, 0.08); }
+    .transition-all { transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+</style>
+
 @code {
+    /* 
+       Team Note: This is the command center of the app. 
+       We use the DashboardService to crunch the numbers and then we display them with a clean, animated layout.
+    */
     [CascadingParameter]
     private Task<AuthenticationState> AuthStateTask { get; set; } = null!;
 
@@ -115,8 +152,20 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateTask;
-        var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-        _stats = await DashboardService.GetStatsAsync(userId);
+        try 
+        {
+            var authState = await AuthStateTask;
+            var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            
+            if (string.IsNullOrEmpty(userId)) return;
+
+            // We fetch our statistics from the DashboardService here.
+            _stats = await DashboardService.GetStatsAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError("We couldn't load your dashboard stats. Please try again.");
+            Console.WriteLine($"Dashboard error: {ex.Message}");
+        }
     }
 }
